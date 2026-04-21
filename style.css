@@ -1,0 +1,263 @@
+//Cart  Logic
+let cart = JSON.parse(localStorage.getItem("cart")) || [];
+let total = Number(localStorage.getItem("total")) || 0;
+
+function addToCart(name, price) {
+    price = Number(price);
+
+    cart.push({ name: name, price: price });
+    total += price;
+
+    localStorage.setItem("cart", JSON.stringify(cart));
+    localStorage.setItem("total", total);
+
+    console.log("Cart:", cart);
+    console.log("Total:", total);
+
+    updateCart();
+}
+
+let history = JSON.parse(localStorage.getItem("history")) || [];
+let currentCustomer = localStorage.getItem("customer") || "Guest";
+
+//Product CSV
+async function loadProducts() {
+    let response = await fetch("products.csv");
+    let data = await response.text();
+
+    let rows = data.split("\n").slice(1);
+
+    allProducts = []; // reset
+
+    rows.forEach(row => {
+        if (!row.trim()) return;
+
+        let [name, price, description, image] = row.split(",");
+
+        name = name.trim();
+        description = description.trim();
+        image = image.trim();
+        price = Number(price.trim());
+
+        allProducts.push({ name, price, description, image });
+    });
+
+    displayProducts(allProducts); // render once
+}
+
+window.onload = function() {
+    loadProducts();
+    updateCart();
+    displayHistory();
+    document.getElementById("customerName").value = currentCustomer;
+};
+
+//Search Product
+function searchProducts() {
+    let input = document.getElementById("searchInput").value.toLowerCase();
+
+    let filtered = allProducts.filter(product =>
+        product.name.toLowerCase().includes(input)
+    );
+
+    displayProducts(filtered);
+}
+
+//Display Product
+function displayProducts(products) {
+    let productList = document.getElementById("productList");
+    productList.innerHTML = "";
+
+    products.forEach(product => {
+        let div = document.createElement("div");
+        div.classList.add("product");
+
+        let img = document.createElement("img");
+        img.src = product.image;
+        img.width = 100;
+
+        let title = document.createElement("h4");
+        title.textContent = product.name;
+
+        let desc = document.createElement("p");
+        desc.textContent = product.description;
+
+        let price = document.createElement("p");
+        price.textContent = "$" + product.price;
+
+        let button = document.createElement("button");
+        button.textContent = "Add to Cart";
+
+        button.onclick = function () {
+            addToCart(product.name, product.price);
+        };
+
+        div.appendChild(img);
+        div.appendChild(title);
+        div.appendChild(desc);
+        div.appendChild(price);
+        div.appendChild(button);
+
+        productList.appendChild(div);
+    });
+}
+
+//Checkout Button
+
+//Open Cart
+function openCart() {
+    let modal = document.getElementById("cartModal");
+    let list = document.getElementById("modalCartList");
+    let totalDisplay = document.getElementById("modalTotal");
+    
+    modal.style.display = "block";
+
+    list.innerHTML = "";
+
+    cart.forEach((item, index) => {
+        let li = document.createElement("li");
+
+        let text = document.createElement("span");
+        text.textContent = item.name + " - $" + item.price;
+
+        let removeBtn = document.createElement("button");
+        removeBtn.textContent = "❌";
+        removeBtn.classList.add("remove-btn");
+        removeBtn.style.marginLeft = "10px";
+
+        removeBtn.onclick = function() {
+            removeFromCart(index);
+        };
+
+        li.appendChild(text);
+        li.appendChild(removeBtn);
+        list.appendChild(li);
+    });
+}
+
+//Close Cart
+function closeCart() {
+    document.getElementById("cartModal").style.display = "none";
+}
+
+//Open Modal
+function openCheckout() {
+    if (!currentCustomer) {
+        alert("Please enter customer name first");
+        return;
+    }
+
+    let modal = document.getElementById("checkoutModal");
+    let summary = document.getElementById("checkoutSummary");
+
+    summary.textContent = `${currentCustomer}, your total is $${total}`;
+
+    modal.style.display = "block";
+}
+
+//Close Modal
+function closeModal() {
+    document.getElementById("checkoutModal").style.display = "none";
+}
+
+window.onclick = function(event) {
+    let modal = document.getElementById("checkoutModal");
+    if (event.target === modal) {
+        modal.style.display = "none";
+    }
+};
+
+//Confirm Checkout
+function confirmCheckout() {
+    let record = `${currentCustomer} bought ${cart.length} items ($${total})`;
+    history.push(record);
+
+    localStorage.setItem("history", JSON.stringify(history));
+
+    displayHistory();
+
+    // reset cart
+    cart = [];
+    total = 0;
+
+    localStorage.removeItem("cart");
+    localStorage.removeItem("total");
+
+    updateCart();
+    closeModal();
+}
+
+//Update Cart
+function updateCart() {
+    let count = document.getElementById("cartCount");
+    if (count) {
+        count.textContent = cart.length;
+    }
+}
+
+//Remove from Cart
+function removeFromCart(index) {
+    cart.splice(index, 1);
+
+    // recalculate total
+    total = 0;
+    cart.forEach(item => {
+        total += item.price;
+    });
+
+    localStorage.setItem("cart", JSON.stringify(cart));
+    localStorage.setItem("total", total);
+
+    openCart(); // refresh modal
+    updateCart();
+}
+
+//CRM: Save Customer
+function saveCustomer() {
+    let nameInput = document.getElementById("customerName").value.trim();
+
+    if (nameInput === "") {
+        currentCustomer = "Guest";
+    } else {
+        currentCustomer = nameInput;
+    }
+
+    localStorage.setItem("customer", currentCustomer);
+    alert("Customer saved: " + currentCustomer);
+}
+
+//Checkout + CRM Tracking
+function checkout() {
+    //  if (!currentCustomer) {
+    //      alert("Please enter customer name first");
+    //      return;
+    //  }
+
+    let record = `${currentCustomer} bought ${cart.length} items ($${total})`;
+    history.push(record);
+
+    localStorage.setItem("history", JSON.stringify(history));
+
+    displayHistory();
+
+    //Reset Cart
+    cart = [];
+    total = 0;
+
+    localStorage.removeItem("cart");
+    localStorage.removeItem("total");
+
+    updateCart();
+}
+
+//Purchase History
+function displayHistory() {
+    let historyList = document.getElementById("history");
+    historyList.innerHTML = "";
+
+    history.forEach(item => {
+        let li = document.createElement("li");
+        li.textContent = item;
+        historyList.appendChild(li);
+    });
+}
